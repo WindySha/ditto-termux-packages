@@ -15,6 +15,10 @@ on:
         description: Plan a round once this run is published
         type: boolean
         default: true
+      publish_run:
+        description: Instead of building, publish what this earlier run built (a run ID)
+        type: string
+        default: ''
   schedule:
     - cron: '23 */6 * * *'
 
@@ -23,7 +27,9 @@ permissions:
   actions: write
 
 concurrency:
-  group: ${{ inputs.packages && format('packages-{0}', inputs.packages) || 'round' }}
+  group: >-
+    ${{ inputs.publish_run && format('publish-{0}', inputs.publish_run)
+    || inputs.packages && format('packages-{0}', inputs.packages) || 'round' }}
   cancel-in-progress: false
 
 env:
@@ -38,7 +44,7 @@ jobs:
     runs-on: ubuntu-latest
     # Planning reads and writes the ci release's state.json, as publishing does.
     concurrency:
-      group: ${{ inputs.packages && format('plan-{0}', github.run_id) || 'state' }}
+      group: ${{ (inputs.packages || inputs.publish_run) && format('plan-{0}', github.run_id) || 'state' }}
       cancel-in-progress: false
       queue: max
     outputs:
@@ -52,7 +58,12 @@ jobs:
         id: plan
         env:
           PACKAGES: ${{ inputs.packages }}
+          PUBLISH_RUN: ${{ inputs.publish_run }}
         run: |
+          if [ -n "$PUBLISH_RUN" ]; then
+            echo "count=0" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           if [ -n "$PACKAGES" ]; then
             echo "matrix=$(jq -nc --arg p "$PACKAGES" '{include: [{chunk: 1, packages: $p, budget: 330}]}')" >> "$GITHUB_OUTPUT"
             echo "count=1" >> "$GITHUB_OUTPUT"
@@ -135,7 +146,7 @@ jobs:
 
   publish:
     needs: [plan, build]
-    if: ${{ !cancelled() && needs.plan.result == 'success' && needs.plan.outputs.count != '0' }}
+    if: ${{ !cancelled() && needs.plan.result == 'success' && (needs.plan.outputs.count != '0' || inputs.publish_run) }}
     runs-on: ubuntu-latest
     timeout-minutes: 350
     concurrency:
@@ -150,6 +161,8 @@ jobs:
         with:
           pattern: build-*
           path: artifacts
+          run-id: ${{ inputs.publish_run || github.run_id }}
+          github-token: ${{ github.token }}
       - name: Install dpkg-scanpackages
         run: command -v dpkg-scanpackages || sudo apt-get install -y dpkg-dev
       - name: Publish

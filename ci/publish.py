@@ -164,18 +164,16 @@ def main():
     shutil.rmtree(work, ignore_errors=True)
     debs_dir = work / "debs"
     debs_dir.mkdir(parents=True)
-    results, logs = [], {}
-    for artifact in sorted(p for p in artifacts.iterdir() if p.is_dir()):
-        if (artifact / "debs.tar").exists():
-            with tarfile.open(artifact / "debs.tar") as tar:
-                for member in tar.getmembers():
-                    if member.isfile() and member.name.endswith(".deb"):
-                        member.name = os.path.basename(member.name)
-                        tar.extract(member, debs_dir, filter="data")
-        if (artifact / "results.tsv").exists():
-            results += [line.split("\t") for line in (artifact / "results.tsv").read_text().splitlines() if line]
-        for log in (artifact / "logs").glob("*.log"):
-            logs[log.stem] = log
+    # With one artifact, download-artifact puts its files in the directory itself.
+    for archive in sorted(artifacts.rglob("debs.tar")):
+        with tarfile.open(archive) as tar:
+            for member in tar.getmembers():
+                if member.isfile() and member.name.endswith(".deb"):
+                    member.name = os.path.basename(member.name)
+                    tar.extract(member, debs_dir, filter="data")
+    results = [line.split("\t") for path in sorted(artifacts.rglob("results.tsv"))
+               for line in path.read_text().splitlines() if line]
+    logs = {log.stem: log for log in artifacts.rglob("logs/*.log")}
 
     index = parse_index(download("stable", "Packages", work) .read_text(encoding="utf-8"))
     new = {}
