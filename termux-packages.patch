@@ -1,0 +1,352 @@
+diff --git a/packages/attr/build.sh b/packages/attr/build.sh
+index 6c193fec02..14b10feb93 100644
+--- a/packages/attr/build.sh
++++ b/packages/attr/build.sh
+@@ -3,7 +3,9 @@ TERMUX_PKG_DESCRIPTION="Utilities for manipulating filesystem extended attribute
+ TERMUX_PKG_LICENSE="GPL-2.0"
+ TERMUX_PKG_MAINTAINER="@termux"
+ TERMUX_PKG_VERSION="2.6.0"
+-TERMUX_PKG_SRCURL="http://download.savannah.gnu.org/releases/attr/attr-${TERMUX_PKG_VERSION}.tar.gz"
++# Savannah's primary host is unreachable from the builder network. This
++# mirror serves the byte-identical archive verified by TERMUX_PKG_SHA256.
++TERMUX_PKG_SRCURL="https://mirror.kumi.systems/nongnu/attr/attr-${TERMUX_PKG_VERSION}.tar.gz"
+ TERMUX_PKG_SHA256=d42fa374513180bb48cb11a46696f488240e5124ff1e6ad88b0abff706985612
+ TERMUX_PKG_AUTO_UPDATE=true
+ TERMUX_PKG_BREAKS="attr-dev"
+diff --git a/packages/ffmpeg/build.sh b/packages/ffmpeg/build.sh
+index e4954eca23..4e1a3f6d76 100644
+--- a/packages/ffmpeg/build.sh
++++ b/packages/ffmpeg/build.sh
+@@ -6,8 +6,9 @@ TERMUX_PKG_MAINTAINER="@termux"
+ TERMUX_PKG_VERSION="8.1.3"
+ TERMUX_PKG_SRCURL="https://www.ffmpeg.org/releases/ffmpeg-${TERMUX_PKG_VERSION}.tar.xz"
+ TERMUX_PKG_SHA256=7138d28c96d9d3e3af4ee3d8cad72741f8ffb40da90c1112235dea3ecd3178a3
+-TERMUX_PKG_DEPENDS="fontconfig, freetype, fribidi, game-music-emu, glslang, harfbuzz, libaom, libandroid-glob, libandroid-shmem, libandroid-stub, libass, libbluray, libbs2b, libbz2, libdav1d, libdvdnav, libdvdread, libiconv, libjxl, liblzma, libmysofa, libmp3lame, libopencore-amr, libopenmpt, libopus, libplacebo, librav1e, libsoxr, libsrt, libssh, libtheora, libv4l, libvidstab, libvmaf, libvo-amrwbenc, libvorbis, libvpx, libwebp, libx264, libx265, libxcb, libxml2, libzimg, libzmq, littlecms, ocl-icd, openssl, rubberband, svt-av1, vulkan-icd, xvidcore, zlib"
+-TERMUX_PKG_BUILD_DEPENDS="opencl-headers, vulkan-headers"
++# Ditto: built without Vulkan (libplacebo, glslang): its ICDs need Mesa or SwiftShader.
++TERMUX_PKG_DEPENDS="fontconfig, freetype, fribidi, game-music-emu, harfbuzz, libaom, libandroid-glob, libandroid-shmem, libandroid-stub, libass, libbluray, libbs2b, libbz2, libdav1d, libdvdnav, libdvdread, libiconv, libjxl, liblzma, libmysofa, libmp3lame, libopencore-amr, libopenmpt, libopus, librav1e, libsoxr, libsrt, libssh, libtheora, libv4l, libvidstab, libvmaf, libvo-amrwbenc, libvorbis, libvpx, libwebp, libx264, libx265, libxcb, libxml2, libzimg, libzmq, littlecms, ocl-icd, openssl, rubberband, svt-av1, xvidcore, zlib"
++TERMUX_PKG_BUILD_DEPENDS="opencl-headers"
+ TERMUX_PKG_CONFLICTS="libav"
+ TERMUX_PKG_BREAKS="ffmpeg-dev"
+ TERMUX_PKG_REPLACES="ffmpeg-dev"
+@@ -100,7 +101,6 @@ termux_step_configure() {
+ 		--enable-libfontconfig \
+ 		--enable-libfreetype \
+ 		--enable-libfribidi \
+-		--enable-libglslang \
+ 		--enable-libgme \
+ 		--enable-libharfbuzz \
+ 		--enable-libjxl \
+@@ -110,7 +110,6 @@ termux_step_configure() {
+ 		--enable-libopencore-amrwb \
+ 		--enable-libopenmpt \
+ 		--enable-libopus \
+-		--enable-libplacebo \
+ 		--enable-librav1e \
+ 		--enable-librubberband \
+ 		--enable-libsoxr \
+@@ -142,7 +141,7 @@ termux_step_configure() {
+ 		--prefix="$TERMUX_PREFIX" \
+ 		--target-os=android \
+ 		--extra-libs="-landroid-glob -landroid-shmem" \
+-		--enable-vulkan \
++		--disable-vulkan \
+ 		$_EXTRA_CONFIGURE_FLAGS \
+ 		--disable-libfdk-aac
+ 	# GPLed FFmpeg binaries linked against fdk-aac are not redistributable.
+diff --git a/packages/libacl/build.sh b/packages/libacl/build.sh
+index 79660ba0ea..bfef130a41 100644
+--- a/packages/libacl/build.sh
++++ b/packages/libacl/build.sh
+@@ -3,7 +3,9 @@ TERMUX_PKG_DESCRIPTION="Access control list shared library"
+ TERMUX_PKG_LICENSE="LGPL-2.1, GPL-2.0"
+ TERMUX_PKG_MAINTAINER="@termux"
+ TERMUX_PKG_VERSION="2.4.0"
+-TERMUX_PKG_SRCURL=https://download.savannah.gnu.org/releases/acl/acl-${TERMUX_PKG_VERSION}.tar.gz
++# Savannah's primary host is unreachable from the builder network. This
++# mirror serves the byte-identical archive verified by TERMUX_PKG_SHA256.
++TERMUX_PKG_SRCURL=https://mirror.kumi.systems/nongnu/acl/acl-${TERMUX_PKG_VERSION}.tar.gz
+ TERMUX_PKG_SHA256=73c853c3d44e1f693e5a96a986f1bd19d3d0dac2c7d453e796177774bc4e5f6a
+ TERMUX_PKG_AUTO_UPDATE=true
+ TERMUX_PKG_DEPENDS="attr"
+diff --git a/packages/libsrt/build.sh b/packages/libsrt/build.sh
+index a168dcb32a..1cea45291e 100644
+--- a/packages/libsrt/build.sh
++++ b/packages/libsrt/build.sh
+@@ -4,7 +4,9 @@ TERMUX_PKG_LICENSE="MPL-2.0"
+ TERMUX_PKG_MAINTAINER="@termux"
+ TERMUX_PKG_VERSION="1.5.7"
+ TERMUX_PKG_SRCURL=https://github.com/Haivision/srt/archive/refs/tags/v${TERMUX_PKG_VERSION}.tar.gz
+-TERMUX_PKG_SHA256=fee6aee6b4933f01ba8b7e18d5d9e4896ad604053fdad2ac55df4a4f1561f30a
++# GitHub regenerated the tag archive; refs/tags/v1.5.7 still resolves to
++# upstream commit 899348d8318eb9a3c5a5b6ec43c4a1114288773a.
++TERMUX_PKG_SHA256=017cd1e437ef2073a4dd10ddf7b55e86bc3d6ebac0393d13bd22f6a57055d32b
+ TERMUX_PKG_AUTO_UPDATE=true
+ TERMUX_PKG_DEPENDS="libc++, openssl"
+ TERMUX_PKG_FORCE_CMAKE=true
+diff --git a/packages/termux-am/build.sh b/packages/termux-am/build.sh
+index 68b586cdc1..02415e3da2 100644
+--- a/packages/termux-am/build.sh
++++ b/packages/termux-am/build.sh
+@@ -30,7 +30,10 @@ termux_step_make() {
+ 	sed -i'' -E '/^org\.gradle\.jvmargs=.*/d' gradle.properties
+ 
+ 	export ANDROID_HOME
+-	export GRADLE_OPTS="-Dorg.gradle.daemon=false -Xmx1536m -Dorg.gradle.java.home=/usr/lib/jvm/java-1.17.0-openjdk-amd64"
++	# The x86_64 builder runs under QEMU TCG on Apple Silicon. HotSpot JIT
++	# compilation can SIGSEGV there while R8 is shrinking the APK, so use the
++	# interpreter for this small host-side Gradle build.
++	export GRADLE_OPTS="-Dorg.gradle.daemon=false -Xint -Xmx1536m -Dorg.gradle.java.home=/usr/lib/jvm/java-1.17.0-openjdk-amd64"
+ 
+ 	$TERMUX_PKG_TMPDIR/gradle/gradle-$_GRADLE_VERSION/bin/gradle \
+ 		:app:assembleRelease
+diff --git a/packages/termux-tools/build.sh b/packages/termux-tools/build.sh
+index 9973785b2b..1316bcf941 100644
+--- a/packages/termux-tools/build.sh
++++ b/packages/termux-tools/build.sh
+@@ -22,6 +22,13 @@ TERMUX_PKG_DEPENDS="bzip2, coreutils, curl, dash, diffutils, findutils, gawk, gr
+ TERMUX_PKG_RECOMMENDS="ed, dos2unix, inetutils, net-tools, patch, unzip"
+ 
+ termux_step_pre_configure() {
++	# configure.ac reads these from the environment and otherwise falls back
++	# to the com.termux paths, which a custom TERMUX_APP__PACKAGE_NAME breaks.
++	export TERMUX_APP_PACKAGE="$TERMUX_APP__PACKAGE_NAME"
++	export TERMUX_BASE_DIR="$TERMUX__ROOTFS"
++	export TERMUX_CACHE_DIR="$TERMUX__CACHE_DIR"
++	export TERMUX_PREFIX
++	export TERMUX_ANDROID_HOME="$TERMUX__HOME"
+ 	autoreconf -vfi
+ }
+ 
+diff --git a/scripts/build-bootstraps.sh b/scripts/build-bootstraps.sh
+index 53bb59df8f..1320cef8b5 100755
+--- a/scripts/build-bootstraps.sh
++++ b/scripts/build-bootstraps.sh
+@@ -93,52 +93,93 @@ build_package() {
+ 
+ }
+ 
+-# Extract *.deb files to the bootstrap root.
+-extract_debs() {
+-
++# Select the requested packages and their Depends closure, matching
++# generate-bootstraps.sh. output/ may also contain unrelated packages built
++# earlier; those must not be copied into the bootstrap archive.
++select_bootstrap_debs() {
+ 	local package_arch="$1"
+-	local current_package_name
+-	local data_archive
+-	local control_archive
+-	local package_tmpdir
+-	local deb
+-	local file
+-
+-	cd "$TERMUX_BUILT_DEBS_DIRECTORY"
+-
+-	if [ -z "$(ls -A)" ]; then
+-		echo $'\n\n\n'"No debs found"
+-		return 1
+-	else
+-		echo $'\n\n\n'"Deb Files:"
+-		echo "\""
+-		ls
+-		echo "\""
+-	fi
++	shift
++	local -a requested_packages=("$@")
++	local deb current_package_name current_package_arch
++	local -A deb_for_package=()
++	local -A provided_by=()
++	local -A selected=()
++	local -a queue=()
++	local package_name dependency dependency_name provides_name
+ 
+ 	for deb in *.deb; do
+-
+-		current_package_name="$(echo "$deb" | sed -E 's/^([^_]+).*/\1/' )"
+-		current_package_arch="$(echo "$deb" | sed -E 's/.*_(aarch64|all|arm|i686|x86_64).deb$/\1/' )"
+-		echo "current_package_name: '$current_package_name'"
+-		echo "current_package_arch: '$current_package_arch'"
+-
+-		if [[ "$current_package_arch" != "$package_arch" ]] && [[ "$current_package_arch" != "all" ]]; then
+-			echo "[*] Skipping incompatible package '$deb' for target '$package_arch'..."
++		current_package_name="$(echo "$deb" | sed -E 's/^([^_]+).*/\1/')"
++		current_package_arch="$(echo "$deb" | sed -E 's/.*_(aarch64|all|arm|i686|x86_64).deb$/\1/')"
++		if [[ "$current_package_arch" != "$package_arch" && "$current_package_arch" != "all" ]]; then
+ 			continue
+ 		fi
+-
+ 		if [[ "$current_package_name" == *"-static" ]]; then
+-			echo "[*] Skipping static package '$deb'..."
+ 			continue
+ 		fi
++		if [[ -n "${deb_for_package[$current_package_name]}" && "$current_package_arch" == "all" ]]; then
++			continue
++		fi
++		deb_for_package["$current_package_name"]="$deb"
++	done
++
++	for current_package_name in "${!deb_for_package[@]}"; do
++		while read -r provides_name; do
++			provides_name="$(echo "$provides_name" | sed -E 's/ *\([^)]*\)//g; s/:.*//; s/^ +//; s/ +$//')"
++			if [[ -n "$provides_name" && -z "${provided_by[$provides_name]}" ]]; then
++				provided_by["$provides_name"]="$current_package_name"
++			fi
++		done < <(dpkg-deb -f "${deb_for_package[$current_package_name]}" Provides | tr ',' '\n')
++	done
+ 
+-		if [[ " ${EXTRACTED_PACKAGES[*]} " == *" $current_package_name "* ]]; then
+-			echo "[*] Skipping already extracted package '$current_package_name'..."
++	queue=("${requested_packages[@]}")
++	while [[ ${#queue[@]} -gt 0 ]]; do
++		package_name="${queue[0]}"
++		queue=("${queue[@]:1}")
++		package_name="$(echo "$package_name" | cut -d'|' -f1 | sed -E 's/ *\([^)]*\)//g; s/:.*//; s/^ +//; s/ +$//')"
++		[[ -z "$package_name" ]] && continue
++		if [[ -z "${deb_for_package[$package_name]}" && -n "${provided_by[$package_name]}" ]]; then
++			package_name="${provided_by[$package_name]}"
++		fi
++		if [[ -z "${deb_for_package[$package_name]}" ]]; then
++			echo "Required bootstrap package '$package_name' was not built." 1>&2
++			return 1
++		fi
++		if [[ -n "${selected[$package_name]}" ]]; then
+ 			continue
+ 		fi
++		selected["$package_name"]=1
++		EXTRACTED_PACKAGES+=("$package_name")
++		while read -r dependency; do
++			dependency_name="$(echo "$dependency" | sed -E 's/^ +//; s/ +$//')"
++			[[ -n "$dependency_name" ]] && queue+=("$dependency_name")
++		done < <(dpkg-deb -f "${deb_for_package[$package_name]}" Depends | tr ',' '\n')
++	done
+ 
+-		EXTRACTED_PACKAGES+=("$current_package_name")
++	declare -gA BOOTSTRAP_DEB_FOR_PACKAGE=()
++	for current_package_name in "${EXTRACTED_PACKAGES[@]}"; do
++		BOOTSTRAP_DEB_FOR_PACKAGE["$current_package_name"]="${deb_for_package[$current_package_name]}"
++	done
++
++	echo $'\n\n\n'"Including ${#EXTRACTED_PACKAGES[@]} packages in the bootstrap:"
++	printf '%s\n' "${EXTRACTED_PACKAGES[@]}"
++}
++
++# Extract selected *.deb files to the bootstrap root.
++extract_debs() {
++	local package_arch="$1"
++	shift
++	local current_package_name
++	local data_archive
++	local control_archive
++	local package_tmpdir
++	local deb
++	local file
++
++	cd "$TERMUX_BUILT_DEBS_DIRECTORY"
++	select_bootstrap_debs "$package_arch" "$@"
++
++	for current_package_name in "${EXTRACTED_PACKAGES[@]}"; do
++		deb="${BOOTSTRAP_DEB_FOR_PACKAGE[$current_package_name]}"
+ 
+ 		package_tmpdir="${BOOTSTRAP_PKGDIR}/${current_package_name}"
+ 		mkdir -p "$package_tmpdir"
+@@ -427,7 +468,7 @@ main() {
+ 			PACKAGES+=("apt")
+ 		fi
+ 
+-		# Core utilities.
++		# Core utilities. Keep this list aligned with generate-bootstraps.sh.
+ 		PACKAGES+=("bash") # Used by `termux-bootstrap-second-stage.sh`
+ 		PACKAGES+=("bzip2")
+ 		if ! ${BOOTSTRAP_ANDROID10_COMPATIBLE}; then
+@@ -436,6 +477,7 @@ main() {
+ 			PACKAGES+=("proot")
+ 		fi
+ 		PACKAGES+=("coreutils")
++		PACKAGES+=("curl")
+ 		PACKAGES+=("dash")
+ 		PACKAGES+=("diffutils")
+ 		PACKAGES+=("findutils")
+@@ -452,6 +494,7 @@ main() {
+ 		PACKAGES+=("termux-keyring")
+ 		PACKAGES+=("termux-tools")
+ 		PACKAGES+=("util-linux")
++		PACKAGES+=("xz-utils")
+ 
+ 		# Additional.
+ 		PACKAGES+=("ed")
+@@ -472,15 +515,24 @@ main() {
+ 		done
+ 		unset add_pkg
+ 
+-		# Build packages.
++		# Build packages. Some bootstrap names, such as bzip2 and curl, are
++		# subpackages and have to be built through their source recipe.
+ 		for package_name in "${PACKAGES[@]}"; do
++			local build_package_name="$package_name"
++			local subpackage_script
++			if [[ ! -f "$TERMUX_SCRIPTDIR/packages/$package_name/build.sh" ]]; then
++				subpackage_script=$(echo "$TERMUX_SCRIPTDIR"/packages/*/"$package_name".subpackage.sh)
++				if [[ -f "$subpackage_script" ]]; then
++					build_package_name="$(basename "$(dirname "$subpackage_script")")"
++				fi
++			fi
+ 			set +e
+-			build_package "$TERMUX_ARCH" "$package_name" || return $?
++			build_package "$TERMUX_ARCH" "$build_package_name" || return $?
+ 			set -e
+ 		done
+ 
+-		# Extract all debs.
+-		extract_debs "$TERMUX_ARCH" || return $?
++		# Extract the requested packages and their dependency closure.
++		extract_debs "$TERMUX_ARCH" "${PACKAGES[@]}" || return $?
+ 
+ 		# Add termux bootstrap second stage files
+ 		add_termux_bootstrap_second_stage_files "$package_arch"
+diff --git a/scripts/properties.sh b/scripts/properties.sh
+index fe062eaa77..be5b33342e 100644
+--- a/scripts/properties.sh
++++ b/scripts/properties.sh
+@@ -462,9 +462,11 @@ TERMUX__REPOS_HOST_ORG_URL="https://github.com/$TERMUX__REPOS_HOST_ORG_NAME"
+ # - https://developer.android.com/build/configure-app-module#set-application-id
+ # - https://github.com/termux/termux-packages/wiki/Termux-file-system-layout#termux-private-app-data-directory
+ #
+-# Default value: `com.termux`
++# Ditto embeds this runtime in the application process.
++# Packages must be rebuilt because the app data path is embedded in
++# ELF RUNPATHs, scripts, and package-manager metadata.
+ ##
+-TERMUX_APP__PACKAGE_NAME="com.termux"
++TERMUX_APP__PACKAGE_NAME="com.wind.ditto.ai"
+ TERMUX_APP_PACKAGE="$TERMUX_APP__PACKAGE_NAME" # Deprecated alternative variable for `TERMUX_APP__PACKAGE_NAME`
+ 
+ __termux_build_props__add_variables_validator_actions "TERMUX_APP__PACKAGE_NAME" "app_package_name"
+@@ -741,9 +743,9 @@ __termux_build_props__add_variables_validator_actions "TERMUX__ROOTFS_ID" "unsig
+ ##
+ # Termux subdirectory path for `TERMUX__ROOTFS`.
+ #
+-# Default value: `files`
++# Keep the embedded runtime separate from other Ditto app files.
+ ##
+-TERMUX__ROOTFS_SUBDIR="files"
++TERMUX__ROOTFS_SUBDIR="files/libtermux"
+ __termux_build_props__add_variables_validator_actions "TERMUX__ROOTFS_SUBDIR" "allow_unset_value safe_relative_path"
+ 
+ ###########
+diff --git a/packages/termux-tools/pkg-no-mirror-select-any-source.patch b/packages/termux-tools/pkg-no-mirror-select-any-source.patch
+new file mode 100644
+index 0000000000..eb01c295f0
+--- /dev/null
++++ b/packages/termux-tools/pkg-no-mirror-select-any-source.patch
+@@ -0,0 +1,10 @@
++Let TERMUX_PKG_NO_MIRROR_SELECT keep any configured source, not only an
++http(s) one, so a file:// repository is never replaced by Termux mirrors.
++
++--- a/scripts/pkg.in
+++++ b/scripts/pkg.in
++@@ -183,3 +183,3 @@
++ 	# Do not update mirror if $TERMUX_PKG_NO_MIRROR_SELECT was set.
++-	if [ -n "${TERMUX_PKG_NO_MIRROR_SELECT-}" ] && [ -n "$current_mirror" ]; then
+++	if [ -n "${TERMUX_PKG_NO_MIRROR_SELECT-}" ]; then
++ 		return
