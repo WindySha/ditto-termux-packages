@@ -130,10 +130,10 @@ class Pools:
             if len(self.assets[n]) < POOL_CAPACITY:
                 return n
         n = max(self.assets, default=0) + 1
-        gh("release", "create", f"pool-{n}", "--title", f"Ditto terminal packages, pool {n}",
-           "--notes", "Package files for the stable release's index; see the README.",
-           "--latest=false")
-        self.ids[n] = releases()[f"pool-{n}"]
+        self.ids[n] = gh("api", "-X", "POST", f"repos/{REPO}/releases", "-f", f"tag_name=pool-{n}",
+                         "-f", f"name=Ditto terminal packages, pool {n}",
+                         "-f", "body=Package files for the stable release's index; see the README.",
+                         "-f", "make_latest=false", "-q", ".id").strip()
         self.assets[n] = {}
         return n
 
