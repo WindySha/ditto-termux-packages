@@ -1,0 +1,95 @@
+diff --git a/repo.json b/repo.json
+index fd6bd5ded4..fe3e087d9b 100644
+--- a/repo.json
++++ b/repo.json
+@@ -1,21 +1,21 @@
+ {
+   "pkg_format": "debian",
+   "packages": {
+-    "name": "termux-main",
++    "name": "ditto-main",
+     "distribution": "stable",
+     "component": "main",
+-    "url": "https://packages-cf.termux.dev/apt/termux-main"
++    "url": "https://github.com/WindySha/ditto-termux-packages/releases/download"
+   },
+   "root-packages": {
+-    "name": "termux-root",
+-    "distribution": "root",
+-    "component": "stable",
+-    "url": "https://packages-cf.termux.dev/apt/termux-root"
++    "name": "ditto-root",
++    "distribution": "stable",
++    "component": "root",
++    "url": "https://github.com/WindySha/ditto-termux-packages/releases/download"
+   },
+   "x11-packages": {
+-    "name": "termux-x11",
+-    "distribution": "x11",
+-    "component": "main",
+-    "url": "https://packages-cf.termux.dev/apt/termux-x11"
++    "name": "ditto-x11",
++    "distribution": "stable",
++    "component": "x11",
++    "url": "https://github.com/WindySha/ditto-termux-packages/releases/download"
+   }
+ }
+diff --git a/scripts/build/termux_get_repo_files.sh b/scripts/build/termux_get_repo_files.sh
+index fb32c59ef3..a7659ca76e 100644
+--- a/scripts/build/termux_get_repo_files.sh
++++ b/scripts/build/termux_get_repo_files.sh
+@@ -15,11 +15,10 @@ termux_get_repo_files() {
+ 		TERMUX_REPO_NAME="${TERMUX_REPO_NAME//\//-}"
+ 		case "$TERMUX_REPO_PKG_FORMAT" in
+ 		"debian")
+-			RELEASE_FILE="${TERMUX_COMMON_CACHEDIR}/${TERMUX_REPO_NAME}-${TERMUX_REPO_DISTRIBUTION[$idx]}-Release"
+-			repo_base="${TERMUX_REPO_URL[$idx]}/dists/${TERMUX_REPO_DISTRIBUTION[$idx]}"
++			# Ditto's repository is flat and unsigned: the distribution is a
++			# directory holding Packages, and Filename is relative to the url.
++			repo_base="${TERMUX_REPO_URL[$idx]}/${TERMUX_REPO_DISTRIBUTION[$idx]}"
+ 			dl_prefix="${TERMUX_REPO_NAME}-${TERMUX_REPO_DISTRIBUTION[$idx]}-${TERMUX_REPO_COMPONENT[$idx]}"
+-			RELEASE_FILE_URL="${repo_base}/Release"
+-			RELEASE_FILE_SIG_URL="${RELEASE_FILE_URL}.gpg"
+ 			;;
+ 		"pacman")
+ 			RELEASE_FILE="${TERMUX_COMMON_CACHEDIR}-${TERMUX_ARCH}/${TERMUX_REPO_NAME}-json"
+@@ -36,6 +35,14 @@ termux_get_repo_files() {
+ 			if [[ "${CI-false}" == "true" ]]; then
+ 				delay=30
+ 			fi
++			if [[ "$TERMUX_REPO_PKG_FORMAT" == "debian" ]]; then
++				for attempt in {1..6}; do
++					termux_download "${repo_base}/Packages" \
++						"${TERMUX_COMMON_CACHEDIR}-${TERMUX_ARCH}/${dl_prefix}-Packages" SKIP_CHECKSUM && exit 0
++					sleep "$delay"
++				done
++				termux_error_exit "Failed to download package repository metadata. Try to build without -i/-I option."
++			fi
+ 			for attempt in {1..6}; do
+ 				if termux_download "${RELEASE_FILE_URL}" "${RELEASE_FILE}" SKIP_CHECKSUM \
+ 						&& termux_download "${RELEASE_FILE_SIG_URL}" "${RELEASE_FILE}.gpg" SKIP_CHECKSUM; then
+diff --git a/scripts/properties.sh b/scripts/properties.sh
+index be5b33342e..0b6bb76e30 100644
+--- a/scripts/properties.sh
++++ b/scripts/properties.sh
+@@ -2182,13 +2182,13 @@ TERMUX_AM_APP__AM_CLASS__CLASS_NAME="$TERMUX_AM_APP__NAMESPACE.Am"
+ # and are compiled locally.
+ # FIXME: Checking for all variables will be added later in repo
+ # changes pull, currently only `TERMUX_REPO_APP__PACKAGE_NAME` is checked.
+-TERMUX_REPO_APP__PACKAGE_NAME="com.termux"
+-TERMUX_REPO_APP__DATA_DIR="/data/data/com.termux"
+-TERMUX_REPO__CORE_DIR="/data/data/com.termux/termux/core"
+-TERMUX_REPO__APPS_DIR="/data/data/com.termux/termux/app"
+-TERMUX_REPO__ROOTFS="/data/data/com.termux/files"
+-TERMUX_REPO__HOME="/data/data/com.termux/files/home"
+-TERMUX_REPO__PREFIX="/data/data/com.termux/files/usr"
++TERMUX_REPO_APP__PACKAGE_NAME="$TERMUX_APP__PACKAGE_NAME"
++TERMUX_REPO_APP__DATA_DIR="$TERMUX_APP__DATA_DIR"
++TERMUX_REPO__CORE_DIR="$TERMUX__CORE_DIR"
++TERMUX_REPO__APPS_DIR="$TERMUX__APPS_DIR"
++TERMUX_REPO__ROOTFS="$TERMUX__ROOTFS"
++TERMUX_REPO__HOME="$TERMUX__HOME"
++TERMUX_REPO__PREFIX="$TERMUX__PREFIX"
+ 
+ 
+ 

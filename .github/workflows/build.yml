@@ -1,0 +1,159 @@
+name: Build packages
+
+# A round builds every recipe whose dependencies are in the repository, publishes what it
+# built, and starts the next round, until nothing is left to build. Big recipes get a run of
+# their own, which starts a round when it's published. See ci/plan.py.
+
+on:
+  workflow_dispatch:
+    inputs:
+      packages:
+        description: Recipes to build in one job, space-separated (empty plans a round)
+        type: string
+        default: ''
+      chain:
+        description: Plan a round once this run is published
+        type: boolean
+        default: true
+  schedule:
+    - cron: '23 */6 * * *'
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: ${{ inputs.packages && format('packages-{0}', inputs.packages) || 'round' }}
+  cancel-in-progress: false
+
+env:
+  TERMUX_PACKAGES_COMMIT: e8cd1ae62467ddc9af7cc4dd0b44ca2e355ef2b2
+  # The image the packages already in the repository were built with.
+  TERMUX_BUILDER_IMAGE_NAME: ghcr.io/termux/package-builder@sha256:44999857244619e25bc8e3427904a16d36cc0c0e087704af039e5bdf94814ac9
+  GH_TOKEN: ${{ github.token }}
+  GH_REPO: ${{ github.repository }}
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    # Planning reads and writes the ci release's state.json, as publishing does.
+    concurrency:
+      group: ${{ inputs.packages && format('plan-{0}', github.run_id) || 'state' }}
+      cancel-in-progress: false
+      queue: max
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+      count: ${{ steps.plan.outputs.count }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: ditto
+      - name: Plan
+        id: plan
+        env:
+          PACKAGES: ${{ inputs.packages }}
+        run: |
+          if [ -n "$PACKAGES" ]; then
+            echo "matrix=$(jq -nc --arg p "$PACKAGES" '{include: [{chunk: 1, packages: $p, budget: 330}]}')" >> "$GITHUB_OUTPUT"
+            echo "count=1" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          ditto/ci/checkout.sh .
+          gh release download stable -p Packages -D index
+          mkdir -p state
+          if gh release view ci --json assets -q '.assets[].name' | grep -qx state.json; then
+            gh release download ci -p state.json -D state
+          else
+            echo '{}' > state/state.json
+          fi
+          python3 ditto/ci/plan.py --termux-packages . --index index/Packages --state state/state.json \
+            --targets ditto/ci/targets.txt | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Start the big recipes on their own
+        if: steps.plan.outputs.singles && steps.plan.outputs.singles != '[]'
+        env:
+          SINGLES: ${{ steps.plan.outputs.singles }}
+        run: |
+          now=$(date +%s)
+          for p in $(jq -r '.[]' <<< "$SINGLES"); do
+            gh workflow run build.yml --ref "$GITHUB_REF_NAME" -f packages="$p"
+          done
+          mkdir -p new
+          jq --argjson s "$SINGLES" --argjson t "$now" \
+            '.inflight = (.inflight // {}) + ($s | map({key: ., value: $t}) | from_entries)' \
+            state/state.json > new/state.json
+          gh release upload ci new/state.json --clobber
+
+  build:
+    name: build ${{ matrix.chunk }}
+    needs: plan
+    if: needs.plan.outputs.count != '0'
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    steps:
+      - name: Note the start time
+        run: echo "JOB_START=$(date +%s)" >> "$GITHUB_ENV"
+      - uses: actions/checkout@v7
+        with:
+          path: ditto
+      - name: Check out termux-packages
+        run: ditto/ci/checkout.sh .
+      - name: Enable zram
+        continue-on-error: true
+        uses: ./.github/actions/zram
+      - name: Load the builder image
+        run: ./scripts/run-docker.sh true
+      - name: Free disk space
+        run: ./scripts/free-space.sh
+      - name: Build
+        env:
+          PACKAGES: ${{ matrix.packages }}
+          BUDGET: ${{ matrix.budget }}
+        run: |
+          export START_BEFORE=$(( JOB_START + BUDGET * 60 ))
+          export DEADLINE=$(( JOB_START + 335 * 60 ))
+          ditto/ci/build.sh out/results.tsv out/logs $PACKAGES
+      - name: Collect the packages
+        if: always()
+        run: |
+          mkdir -p out/debs
+          if [ -d output ]; then find output -name '*.deb' -exec mv -t out/debs {} +; fi
+          echo "$(ls out/debs | wc -l) packages"
+          # actions/upload-artifact rejects names with ":", which versions with an epoch have.
+          tar -cf out/debs.tar -C out debs
+          rm -rf out/debs
+          cat out/results.tsv || :
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: build-${{ matrix.chunk }}
+          path: out
+          retention-days: 7
+          compression-level: 0
+
+  publish:
+    needs: [plan, build]
+    if: ${{ !cancelled() && needs.plan.result == 'success' && needs.plan.outputs.count != '0' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    concurrency:
+      group: state
+      cancel-in-progress: false
+      queue: max
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: ditto
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: build-*
+          path: artifacts
+      - name: Install dpkg-scanpackages
+        run: command -v dpkg-scanpackages || sudo apt-get install -y dpkg-dev
+      - name: Publish
+        run: python3 ditto/ci/publish.py artifacts "$RUNNER_TEMP/publish"
+      - name: Plan the next round
+        if: github.event_name == 'schedule' || inputs.chain
+        run: gh workflow run build.yml --ref "$GITHUB_REF_NAME"
